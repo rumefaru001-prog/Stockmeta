@@ -1,0 +1,113 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and usage data",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "isPro": { "type": "boolean" },
+        "proUntil": { "type": "string", "format": "date-time" },
+        "processedCount": { "type": "integer" },
+        "todayProcessedCount": { "type": "integer" },
+        "lastProcessedDate": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "isBlocked": { "type": "boolean" }
+      },
+      "required": ["email", "processedCount"]
+    },
+    "PaymentRequest": {
+      "title": "Payment Request",
+      "description": "Subscription payment request from user",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "bkashNumber": { "type": "string" },
+        "transactionId": { "type": "string" },
+        "plan": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userEmail", "bkashNumber", "transactionId", "plan", "status"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "User support message to admin",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "message": { "type": "string" },
+        "status": { "type": "string", "enum": ["unread", "read"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "message", "status"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "System notification for users",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "read": { "type": "boolean" },
+        "type": { "type": "string", "enum": ["success", "warning", "info"] }
+      },
+      "required": ["title", "message", "createdAt"]
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "Global system settings",
+      "type": "object",
+      "properties": {
+        "noticeText": { "type": "string" },
+        "marqueeText": { "type": "string" },
+        "telegramLink": { "type": "string" },
+        "whatsappLink": { "type": "string" },
+        "facebookLink": { "type": "string" },
+        "subscriptionEnabled": { "type": "boolean" },
+        "freeLimit": { "type": "integer" },
+        "freeLimitType": { "type": "string" },
+        "keys": { "type": "array", "items": { "type": "string" } },
+        "tutorials": { 
+          "type": "array", 
+          "items": { 
+            "type": "object", 
+            "properties": {
+              "title": { "type": "string" },
+              "url": { "type": "string" }
+            }
+          } 
+        },
+        "plan1": { "type": "object" },
+        "plan2": { "type": "object" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/requests/{requestId}": {
+      "schema": "PaymentRequest",
+      "description": "Payment requests"
+    },
+    "/messages/{messageId}": {
+      "schema": "Message",
+      "description": "User support messages"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "System notifications"
+    },
+    "/settings/{settingId}": {
+      "schema": "Settings",
+      "description": "System settings"
+    }
+  }
+}

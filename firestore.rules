@@ -1,0 +1,145 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (Firebase Auth UID)
+    // Fields:
+    //   - email: string (required) - User's email address
+    //   - role: string (required, enum: ['admin', 'user']) - User's role
+    //   - isPro: boolean (optional) - Whether the user has a pro subscription
+    //   - proUntil: timestamp (optional) - Subscription expiration date
+    //   - processedCount: number (optional) - Total images processed
+    //   - createdAt: timestamp (required) - Account creation date
+    //
+    // Collection: notifications
+    // Fields:
+    //   - title: string (required, max 200 chars)
+    //   - message: string (required, max 2000 chars)
+    //   - createdAt: timestamp (required)
+    //   - target: string (required, enum: ['all', 'user'])
+    //
+    // Collection: settings
+    // Fields:
+    //   - noticeText: string (optional)
+    //   - marqueeText: string (optional)
+    //   - telegramLink: string (optional)
+    //   - whatsappLink: string (optional)
+    //   - whatsappCommunityLink: string (optional)
+    //   - facebookLink: string (optional)
+    //
+    // Collection: requests
+    // Fields:
+    //   - userId: string (required)
+    //   - userEmail: string (required)
+    //   - plan: string (required)
+    //   - status: string (required, enum: ['pending', 'approved', 'rejected'])
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: chats
+    // Document ID: userId
+    // Fields:
+    //   - userId: string (required)
+    //   - lastMessage: string (required)
+    //   - lastTimestamp: timestamp (required)
+    //
+    // ===============================================================
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email == "ahfarhan001@gmail.com" ||
+         request.auth.token.email == "rume.faru001@gmail.com" ||
+         request.auth.uid == "qqG5Q8hDk2ckYRRBVg1Ti82k5Cv1" ||
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') == 'admin'));
+    }
+
+    function isRecent(timestamp) {
+      return timestamp > request.time - duration.value(5, 'm') &&
+             timestamp < request.time + duration.value(5, 'm');
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // Validator Functions
+    function isValidUser(data) {
+      return data.email is string &&
+             data.role in ['admin', 'user'] &&
+             (!('isPro' in data) || data.isPro is bool) &&
+             (!('processedCount' in data) || data.processedCount is number);
+    }
+
+    function isValidNotification(data) {
+      return data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.message is string && data.message.size() > 0 && data.message.size() < 2000 &&
+             data.target in ['all', 'user'];
+    }
+
+    function isValidChat(data) {
+      return data.userId is string &&
+             data.lastMessage is string &&
+             data.lastMessage.size() < 1000;
+    }
+
+    function isValidMessage(data) {
+      return data.text is string &&
+             data.text.size() > 0 &&
+             data.text.size() < 2000 &&
+             data.sender in ['user', 'admin'];
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && request.auth.uid == userId && isValidUser(request.resource.data) && request.resource.data.role == 'user';
+      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role && isValidUser(request.resource.data)) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Notifications
+    match /notifications/{notificationId} {
+      allow read, list, get: if true; // Public announcements
+      allow write: if isAdmin() && isValidNotification(request.resource.data);
+    }
+
+    // Settings
+    match /settings/{settingId} {
+      allow read: if true; // Public settings
+      allow write: if isAdmin();
+    }
+
+    // Requests
+    match /requests/{requestId} {
+      allow read, list: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isRecent(request.resource.data.createdAt);
+      allow update, delete: if isAdmin();
+    }
+    
+    // Real-time Chat
+    match /chats/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if (isOwner(userId) && isValidChat(request.resource.data)) || isAdmin();
+      
+      match /messages/{messageId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if (isOwner(userId) && request.resource.data.sender == 'user' && isValidMessage(request.resource.data)) || isAdmin();
+        allow update, delete: if isAdmin();
+      }
+    }
+  }
+}
